@@ -1,8 +1,24 @@
-# pdm-f24-hw1
+# Readme
 
-NYCU Perception and Decision Making 2024 Fall
+## Required package
 
-Spec: [Google Docs](https://docs.google.com/document/d/1QSbSWJ7s78h9QRS4EC3gsECFF8JDg0IT/edit?usp=sharing&ouid=101044242612677438105&rtpof=true&sd=true)
+numpy, open3d, scipy, tqdm, sklearn, opencv
 
-## Preparation
-The replica dataset, you can use the same one in `hw0`.
+## Usage  
+
+for bev.py
+
+```bash
+python3 bev.py --front ${FRONT IMAGE PATH} --bev ${BEV IMAGE PATH}
+```  
+
+for reconstruct.py
+
+GLOBAL SET = 1 ; Use global registration (RANSAC).
+GLOBAL SET = 0 ; Not use global registration (RANSAC).
+
+ICP VERSION can be "my_icp" or "open3d".
+
+```bash
+python3 reconstruct.py -f ${FLOOR NUMBER} --global_reg ${GLOBAL SET} -v ${ICP VERSION}  
+```

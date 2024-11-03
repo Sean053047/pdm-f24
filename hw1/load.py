@@ -3,6 +3,7 @@ from PIL import Image
 import numpy as np
 import habitat_sim
 from habitat_sim.utils.common import d3_40_colors_rgb
+from habitat.utils.visualizations import maps
 import cv2
 import os
 import sys
@@ -31,7 +32,20 @@ cam_extr = []
 # one for the simulator backend
 # one for the agent, where you can attach a bunch of sensors
 
+def generate_bev(agent_state, sim):
+    bev_map = maps.get_topdown_map(sim.pathfinder, height=agent_state.position[1], )
+    agent_x, agent_z = agent_state.position[0], agent_state.position[2]
 
+    # Convert the agent's position to pixel coordinates in the top-down map
+    map_shape = bev_map.shape
+    pixel_coords = maps.to_grid(agent_x, agent_z, map_shape, sim.pathfinder, meters_per_pixel=0.05)
+
+    # Draw a circle at the agent's position on the map
+    bev_image = cv2.cvtColor(bev_map, cv2.COLOR_GRAY2BGR)  # Convert to BGR for visualization
+    cv2.circle(bev_image, (pixel_coords[1], pixel_coords[0]), radius=5, color=(0, 0, 255), thickness=-1)
+
+    return bev_image
+    
 def transform_rgb_bgr(image):
     return image[:, :, [2, 1, 0]]
 
@@ -101,24 +115,37 @@ def make_simple_cfg(settings):
 def navigateAndSee(action="", data_root='data_collection/second_floor/'):
     global count
     observations = sim.step(action)
+    print(list(observations.keys()))
     #print("action: ", action)
-
     cv2.imshow("RGB", transform_rgb_bgr(observations["color_sensor"]))
     cv2.imshow("depth", transform_depth(observations["depth_sensor"]))
+    print(np.max(observations['depth_sensor']), np.min(observations['depth_sensor']))
+    
     cv2.imshow("semantic", transform_semantic(observations["semantic_sensor"]))
     agent_state = agent.get_state()
+    print()
+    print(agent_state.sensor_states)
+    print()
     sensor_state = agent_state.sensor_states['color_sensor']
     print("Frame:", count)
     print("camera pose: x y z rw rx ry rz")
     print(sensor_state.position[0],sensor_state.position[1],sensor_state.position[2], sensor_state.rotation.w, sensor_state.rotation.x, sensor_state.rotation.y, sensor_state.rotation.z)
     
-    count += 1
     cv2.imwrite(data_root + f"rgb/{count}.png", transform_rgb_bgr(observations["color_sensor"]))
-    cv2.imwrite(data_root + f"depth/{count}.png", transform_depth(observations["depth_sensor"]))
+    # cv2.imwrite(data_root + f"depth/{count}.png", transform_depth(observations["depth_sensor"]))
+    # ! Save original depth
+    np.save(data_root + f"depth/{count}.npy", observations['depth_sensor'])
     cv2.imwrite(data_root + f"semantic/{count}.png", transform_semantic(observations["semantic_sensor"]))
     
+    # bev_image = generate_bev(agent_state, sim)
+    # bev_image = cv2.cvtColor(bev_image, cv2.COLOR_RGB2BGR)
+    # cv2.imshow("BEV", bev_image)
+    # cv2.imwrite(data_root + f"bev/{count}.png", bev_image)
+    
+    count += 1
     cam_extr.append([sensor_state.position[0], sensor_state.position[1], sensor_state.position[2], 
                     sensor_state.rotation.w, sensor_state.rotation.x, sensor_state.rotation.y, sensor_state.rotation.z])
+    
     
 
 parser = argparse.ArgumentParser()
@@ -136,8 +163,10 @@ agent_state = habitat_sim.AgentState()
 if args.floor == 1:
     agent_state.position = np.array([0.0, 0.0, 0.0])  # agent in world space
 elif args.floor == 2:
-    agent_state.position = np.array([0.0, 1.0, -1.0])  # agent in world space
+    agent_state.position = np.array([0.0, 1.0, 0.0])  # agent in world space
 agent.set_state(agent_state)
+
+
 
 # obtain the default, discrete actions that an agent can perform
 # default action space contains 3 actions: move_forward, turn_left, and turn_right
@@ -166,7 +195,7 @@ elif args.floor == 2:
 if os.path.isdir(data_root): 
     shutil.rmtree(data_root)  # WARNING: this line will delete whole directory with files
 
-for sub_dir in ['rgb/', 'depth/', 'semantic/']:
+for sub_dir in ['rgb/', 'depth/', 'semantic/' ,'bev/']:
     os.makedirs(data_root + sub_dir)
 
 count = 0
