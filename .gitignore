@@ -1,0 +1,10 @@
+*.pcd
+*.png
+*.npy
+*.pkl
+*.json
+*.xlsx
+*__pycache__*
+apartment_0*
+*replica_v1*
+Replica-Dataset
